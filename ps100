@@ -1,0 +1,124 @@
+function Filter-Groups {
+    [CmdletBinding()]
+    param(
+    [Parameter(mandatory=$true)]
+    [string]$name,
+    [string]$filter)
+
+    $domains = '', ''
+
+    forEach ($domain in $domains) {
+        try {
+            $userObject = Get-ADuser -Filter {DisplayName -eq $name} -Properties * -Server $domain
+            $groupObject = $userobject.memberof | get-adgroup -server $domain | Where-Object {$_.Name -like "*$filter*"} | sort name
+
+            Write-Host $domain.toUpper() -ForegroundColor White
+            Write-Host ''
+            Write-Output $groupObject.name
+            Write-Host ''
+        }
+        catch {
+                Write-Host '=========================' -ForegroundColor Blue
+                Write-Host ''
+                Write-Host 'nothing found on' $domain.toUpper() -BackgroundColor Red
+                Write-Host ''
+        }
+    }
+    Write-Host "======= DONE =========" -ForegroundColor Green -BackgroundColor White
+}
+
+function Get-Id {
+
+    [CmdletBinding()]
+    param(
+    [Parameter(mandatory=$true)]
+    [string]$id)
+
+#### REQ MODULE CHECKING #################
+    #import AD module
+    Import-Module ActiveDirectory
+    #AD loaded module check
+    if (!(Get-Module ActiveDirectory)) { throw 'Active Directory Module not loaded..' }
+
+######################################
+
+    #list of domains we scan for user objects
+    $domains = '', ''
+
+    for ($num = 0; $num -le $domains.length - 1; $num++) {
+        try {
+            
+            #initial query
+            $userObject = Get-ADuser -Filter {DisplayName -eq $id} -Properties * -Server $domains[$num]
+
+            Write-Host "=====================" -ForegroundColor Gray -BackgroundColor Black
+            Write-Host $domains[$num].toUpper() -ForegroundColor Black -BackgroundColor White
+            Write-Host 'User Summary:' -ForegroundColor Yellow
+            Write-Host 'displayName:' $userObject.displayName
+            Write-Host 'Title:' $userObject.Title 
+            Write-Host 'ENABLED:' $userObject.Enabled
+            Write-Host 'LockedOut:' $userObject.LockedOut
+            Write-Host 'PasswordExpired:' $userObject.PasswordExpired 
+            Write-Host 'PasswordLastSet:' $userObject.PassWordLastSet  
+            Write-Host 'ObjectLocation:' $userObject.CanonicalName
+            Write-Host 'mail:' $userObject.Mail 
+            Write-Host 'mailNickName:' $userObject.mailNickName
+            Write-Host 'UPN:' $userObject.userPrincipalName
+            
+            Write-Host ''
+            Write-Host 'ProxyAddresses:' 
+            Write-Output $userObject.proxyAddresses
+            
+            Write-Host ''
+            Write-Host 'Groups:' 
+            Write-Output $userObject.memberOf | Get-ADgroup -Server $domains[$num] | select -ExpandProperty Name | sort Name
+
+            }
+        catch { #nada
+        }
+    }
+    Write-Host "======= DONE =========" -ForegroundColor Green -BackgroundColor White
+}
+
+function Find-Group {
+    
+    [CmdletBinding()]
+    param(
+    [Parameter(mandatory=$true)]
+    [string]$name)
+
+    $domains = '', ''
+
+    for ($num = 0; $num -le $domains.length - 1; $num++) {
+    
+        try {
+                Get-ADGroup -server $domains[$num] -Filter "name -like '*$name*'" | select name
+            }
+        catch {
+                #nada
+            }
+    }
+}
+
+function add-Group {
+    [CmdletBinding()]
+    param(
+    [Parameter(mandatory=$true)]
+    [string]$name,
+    [string]$group)
+
+    try {
+    $userObject = Get-ADuser -Filter {DisplayName -eq $name} -Server '' | select SAMAccountName
+    Add-ADGroupMember -identity $group -Members $userObject
+
+    Write-Host ''
+    Write-Host $name ' added to ' $group
+    Write-Host 'Printing out Identity'
+    Write-Host 'Stand By.....'
+    Write-Host '===================='
+    Get-Id $name
+    }
+    catch {
+        write-host 'error'
+    }
+}
